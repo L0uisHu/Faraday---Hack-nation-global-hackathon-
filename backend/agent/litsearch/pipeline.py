@@ -1,12 +1,13 @@
 # litsearch/pipeline.py
 
+from concurrent.futures import ThreadPoolExecutor
+
 from .config import MAX_RESULTS_PER_QUERY
 
 from .schemas import LiteratureQCResult, FinalOutput
 from .query_extraction import extract_search_intent
 from .arxiv_search import search_arxiv
 from .ranking import rank_papers
-from .summarization import summarize_top_papers
 from .novelty import assess_novelty
 from .experiment_description import describe_requested_experiment
 from .plan_generation import generate_experiment_plan
@@ -42,20 +43,23 @@ def run_internal_literature_qc(user_prompt: str) -> LiteratureQCResult:
         if paper.url in top_urls
     ]
 
-    summary = summarize_top_papers(user_prompt, top_papers)
-
-    experiment_description = describe_requested_experiment(
-        user_prompt=user_prompt,
-        top_papers=top_papers,
-    )
-
-    novelty = assess_novelty(user_prompt, ranking)
+    # These two LLM calls are independent; run in parallel to reduce latency.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        exp_future = pool.submit(
+            describe_requested_experiment,
+            user_prompt=user_prompt,
+            top_papers=top_papers,
+        )
+        novelty_future = pool.submit(assess_novelty, user_prompt, ranking)
+        experiment_description = exp_future.result()
+        novelty = novelty_future.result()
 
     return LiteratureQCResult(
         search_intent=search_intent,
         retrieved_papers=retrieved_papers,
         ranking=ranking,
-        summary=summary,
+        # Not used by downstream adapter output. Keeping field for schema compatibility.
+        summary="",
         experiment_description=experiment_description,
         novelty=novelty,
     )

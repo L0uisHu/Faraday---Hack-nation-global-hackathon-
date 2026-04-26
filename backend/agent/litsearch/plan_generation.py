@@ -9,6 +9,8 @@ from .schemas import (
 )
 from .structured_llm import claude_parse
 
+MAX_ABSTRACT_CHARS = 900
+
 
 PLAN_GENERATION_PROMPT = """
 You generate operational experiment plans from a scientific user request.
@@ -50,7 +52,7 @@ def generate_experiment_plan(
         {
             "title": paper.title,
             "authors": paper.authors,
-            "abstract": paper.abstract,
+            "abstract": paper.abstract[:MAX_ABSTRACT_CHARS],
             "url": paper.url,
             "categories": paper.categories,
         }

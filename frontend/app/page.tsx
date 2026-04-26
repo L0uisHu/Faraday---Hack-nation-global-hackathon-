@@ -17,10 +17,18 @@ export default function HomePage() {
     const trimmed = hypothesis.trim();
     if (!trimmed || submitting) return;
     setSubmitting(true);
-    saveHypothesis(trimmed);
-    const qc = await fetchQC(trimmed);
-    saveQC(qc);
-    router.push("/qc");
+    try {
+      saveHypothesis(trimmed);
+      const qc = await fetchQC(trimmed);
+      saveQC(qc);
+      router.push("/qc");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to run literature QC.";
+      window.alert(message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (

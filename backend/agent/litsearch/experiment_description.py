@@ -3,6 +3,8 @@
 from .schemas import Paper, ExperimentDescription
 from .structured_llm import claude_parse
 
+MAX_ABSTRACT_CHARS = 900
+
 
 EXPERIMENT_DESCRIPTION_PROMPT = """
 You describe the experiment or study requested by the user.
@@ -33,7 +35,7 @@ def describe_requested_experiment(
         {
             "title": paper.title,
             "authors": paper.authors,
-            "abstract": paper.abstract,
+            "abstract": paper.abstract[:MAX_ABSTRACT_CHARS],
             "url": paper.url,
             "categories": paper.categories,
         }

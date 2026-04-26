@@ -24,9 +24,17 @@ export default function QCPage() {
   async function onGenerate() {
     if (!hypothesis || submitting) return;
     setSubmitting(true);
-    const plan = await fetchPlan(hypothesis);
-    savePlan(plan);
-    router.push("/plan");
+    try {
+      const plan = await fetchPlan(hypothesis);
+      savePlan(plan);
+      router.push("/plan");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to generate plan.";
+      window.alert(message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (

@@ -3,6 +3,8 @@
 from .schemas import Paper, RankingResult
 from .structured_llm import claude_parse
 
+MAX_ABSTRACT_CHARS = 900
+
 
 RANKING_PROMPT = """
 You are ranking arXiv papers for a scientific literature search.
@@ -24,7 +26,7 @@ def rank_papers(user_prompt: str, papers: list[Paper]) -> RankingResult:
     compact_papers = [
         {
             "title": paper.title,
-            "abstract": paper.abstract,
+            "abstract": paper.abstract[:MAX_ABSTRACT_CHARS],
             "url": paper.url,
             "categories": paper.categories,
         }

@@ -11,9 +11,21 @@ async function postJSON<T>(path: string, body: unknown, fallback: T): Promise<T>
       body: JSON.stringify(body),
       cache: "no-store",
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const payload = (await res.json()) as { detail?: string };
+        if (payload?.detail) detail = payload.detail;
+      } catch {
+        // ignore JSON parse errors and keep status text
+      }
+      throw new Error(detail);
+    }
     return (await res.json()) as T;
   } catch (err) {
+    if (err instanceof Error && !err.message.startsWith("Failed to fetch")) {
+      throw err;
+    }
     console.warn(`[faraday] ${path} failed, falling back to mock:`, err);
     return fallback;
   }

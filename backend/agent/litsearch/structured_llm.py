@@ -70,21 +70,17 @@ Return only valid JSON.
     )
 
 
-def claude_parse(
+def _parse_json_payload(text: str) -> dict:
+    payload = _extract_json_payload(text)
+    return json.loads(payload)
+
+
+def _claude_json_message(
     system_prompt: str,
     user_prompt: str,
-    response_model: Type[T],
-    max_tokens: int = 4096,
-) -> T:
-    """
-    Calls Claude and parses the response into a Pydantic model.
-
-    This version uses JSON-schema prompting plus Pydantic validation.
-    It is robust enough for a hackathon MVP.
-    """
-
-    schema = response_model.model_json_schema()
-
+    schema: dict,
+    max_tokens: int,
+) -> str:
     message = client.messages.create(
         model=DEFAULT_MODEL,
         max_tokens=max_tokens,
@@ -110,35 +106,58 @@ Important:
             }
         ],
     )
-
-    text = "".join(
+    return "".join(
         block.text for block in message.content
         if getattr(block, "type", None) == "text"
     )
 
-    try:
-        payload = _extract_json_payload(text)
-        data = json.loads(payload)
-    except json.JSONDecodeError:
-        repaired_text = _repair_json_once(text, schema, max_tokens=max_tokens)
-        try:
-            repaired_payload = _extract_json_payload(repaired_text)
-            data = json.loads(repaired_payload)
-        except json.JSONDecodeError as exc:
-            pos = getattr(exc, "pos", None)
-            snippet = ""
-            if isinstance(pos, int):
-                start = max(0, pos - 120)
-                end = min(len(repaired_payload), pos + 120)
-                snippet = repaired_payload[start:end]
-            raise ValueError(
-                "Claude did not return valid JSON after repair attempt.\n"
-                f"Error: {exc}\n"
-                f"Around error:\n{snippet}\n"
-                f"Full response:\n{repaired_text}"
-            ) from exc
 
-    return response_model.model_validate(data)
+def claude_parse(
+    system_prompt: str,
+    user_prompt: str,
+    response_model: Type[T],
+    max_tokens: int = 4096,
+) -> T:
+    """
+    Calls Claude and parses the response into a Pydantic model.
+
+    This version uses JSON-schema prompting plus Pydantic validation.
+    It is robust enough for a hackathon MVP.
+    """
+
+    schema = response_model.model_json_schema()
+
+    last_error: Exception | None = None
+    last_response = ""
+
+    for _ in range(2):
+        text = _claude_json_message(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            schema=schema,
+            max_tokens=max_tokens,
+        )
+        last_response = text
+
+        try:
+            data = _parse_json_payload(text)
+            return response_model.model_validate(data)
+        except Exception as first_error:
+            last_error = first_error
+
+        try:
+            repaired_text = _repair_json_once(text, schema, max_tokens=max_tokens)
+            last_response = repaired_text
+            repaired_data = _parse_json_payload(repaired_text)
+            return response_model.model_validate(repaired_data)
+        except Exception as repair_error:
+            last_error = repair_error
+
+    raise ValueError(
+        "Claude did not return valid JSON after retry + repair attempts.\n"
+        f"Last error: {last_error}\n"
+        f"Last response:\n{last_response}"
+    ) from last_error
 
 
 def claude_text(
