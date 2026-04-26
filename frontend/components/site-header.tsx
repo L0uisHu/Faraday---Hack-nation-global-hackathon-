@@ -13,7 +13,7 @@ export function SiteHeader() {
           <span className="font-serif text-lg font-medium">Faraday</span>
         </Link>
         <span className="hidden font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground sm:inline">
-          AI co-scientist
+          AI physicist
         </span>
       </div>
     </header>

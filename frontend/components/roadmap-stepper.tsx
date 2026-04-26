@@ -1,4 +1,4 @@
-const STEPS = ["Search", "Protocol", "Materials", "Budget", "Timeline"] as const;
+const STEPS = ["Search", "Protocol", "Resources", "Budget", "Timeline"] as const;
 
 export function RoadmapStepper() {
   return (

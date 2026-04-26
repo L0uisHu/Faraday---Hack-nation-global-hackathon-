@@ -1,6 +1,6 @@
 const STATS = [
   { value: "0", label: "hallucinated citations" },
-  { value: "38M+", label: "papers indexed · PubMed · bioRxiv · medRxiv" },
+  { value: "2.6M+", label: "arXiv papers indexed" },
   { value: "100%", label: "citations link-resolved before output" },
 ] as const;
 

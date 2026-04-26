@@ -35,7 +35,7 @@ export default function HomePage() {
     <div className="mx-auto max-w-3xl space-y-12 py-16">
       <section className="space-y-5">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
-          AI co-scientist · grounded in primary literature
+          AI physicist · grounded in arXiv
         </p>
         <h1 className="font-serif text-5xl leading-[1.05] tracking-tight">
           Every citation real.
