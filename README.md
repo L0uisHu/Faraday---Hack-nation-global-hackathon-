@@ -1,29 +1,36 @@
 # Faraday
 
-> The AI co-scientist, grounded in real research.
+> AI physicist that turns a hypothesis into a literature-grounded experiment plan.
 
-Faraday turns a natural-language scientific hypothesis into a fully
-grounded, runnable experiment plan in seconds — with real protocols,
-real catalog numbers, and real citations.
+**Live demo →** [faraday-research.vercel.app](https://faraday-research.vercel.app)
 
-Built at **Hack-Nation 2026, Zurich Hub**.
+Faraday takes a natural-language scientific hypothesis and produces a
+structured experiment plan in seconds — protocol steps, materials,
+budget, timeline, and validation criteria — with every supporting
+citation pulled live from arXiv. No fabricated references.
+
+**Stack** Next.js 14 · FastAPI · Anthropic Claude · arXiv
 
 ---
 
-## Architecture
+## How it works
 
 ```
-┌──────────────────────┐        HTTPS          ┌──────────────────────┐
-│   Frontend (Vercel)  │ ────────────────────▶ │  Backend (Railway)   │
-│   Next.js 14         │   POST /api/qc        │  FastAPI · Python    │
-│   App Router · TS    │   POST /api/plan      │  Pydantic v2         │
-│   Tailwind · shadcn  │   GET  /health        │  Anthropic SDK       │
-└──────────────────────┘                       └──────────────────────┘
+┌──────────────────────────┐                       ┌──────────────────────┐
+│   Frontend  (Vercel)     │  ─── HTTPS ─────────▶ │   Backend (Railway)  │
+│   Next.js 14 · App Rtr   │      POST /api/qc     │   FastAPI · Py 3.11+ │
+│   TypeScript · Tailwind  │      POST /api/plan   │   Pydantic v2        │
+│   shadcn/ui              │      GET  /health     │   Anthropic SDK      │
+└──────────────────────────┘                       └──────────┬───────────┘
+                                                              │
+                                                       arXiv search API
 ```
 
-The contract between the two apps is locked in [`schema.md`](./schema.md).
-Both `frontend/lib/types.ts` (TypeScript) and `backend/schemas.py`
-(Pydantic v2) mirror that schema field-for-field.
+The litsearch pipeline lives in `backend/agent/litsearch/` and runs:
+query extraction → arXiv search → ranking → summarization → structured
+plan generation. The full JSON contract is locked in
+[`schema.md`](./schema.md); `frontend/lib/types.ts` and
+`backend/schemas.py` mirror it field-for-field.
 
 ---
 
@@ -37,22 +44,24 @@ Two terminals.
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
 uvicorn main:app --reload
-# → http://localhost:8000   (docs at /docs)
+# → http://localhost:8000   (interactive docs at /docs)
 ```
 
 ### Frontend
 
 ```bash
 cd frontend
-cp .env.local.example .env.local   # NEXT_PUBLIC_API_URL=http://localhost:8000
+cp .env.local.example .env.local        # NEXT_PUBLIC_API_URL=http://localhost:8000
 npm install
 npm run dev
 # → http://localhost:3456
 ```
 
-If the backend is down or unreachable, the frontend automatically falls
-back to mock data in `frontend/lib/mock-data.ts` so the demo never breaks.
+If the backend is unreachable, the frontend falls back to mock data
+in `frontend/lib/mock-data.ts` so the UI keeps working during a demo.
+The backend has a matching opt-in fallback when `ALLOW_MOCK_FALLBACK=1`.
 
 ---
 
@@ -60,51 +69,70 @@ back to mock data in `frontend/lib/mock-data.ts` so the demo never breaks.
 
 ### Frontend → Vercel
 
-1. Connect the GitHub repo to Vercel.
-2. **Project Settings → General → Root Directory** → set to `frontend`.
-3. **Environment Variables** → add `NEXT_PUBLIC_API_URL` pointing at
-   your Railway backend URL (e.g. `https://faraday-backend.up.railway.app`).
+1. Connect the repo. Vercel auto-detects Next.js.
+2. **Settings → General → Root Directory** → `frontend`.
+3. **Environment Variables** → `NEXT_PUBLIC_API_URL` = your backend URL
+   (e.g. `https://faraday-backend.up.railway.app`).
 4. Deploy.
 
 ### Backend → Railway
 
-1. Connect the GitHub repo to Railway as a new service.
-2. **Settings → Service → Root Directory** → set to `backend`.
-3. **Variables** → add `ANTHROPIC_API_KEY`.
-4. Railway uses Nixpacks + the `railway.json` start command:
-   `uvicorn main:app --host 0.0.0.0 --port $PORT`.
-   A `Procfile` is included as a fallback.
+1. Connect the repo as a new service.
+2. **Settings → Service → Root Directory** → `backend`.
+3. **Variables**:
+   - `ANTHROPIC_API_KEY` — required.
+   - `ALLOW_MOCK_FALLBACK=1` — optional, returns mocks instead of 500s
+     on pipeline errors. Useful for demos.
+4. Railway uses Nixpacks and the start command in `railway.json`:
+   `uvicorn main:app --host 0.0.0.0 --port $PORT`. A `Procfile` is
+   included as a fallback.
 
-CORS is preconfigured to allow `localhost:3456` and any `*.vercel.app`
-origin.
-
----
-
-## Schema
-
-The full JSON contract lives in [`schema.md`](./schema.md). Both the
-frontend and backend models reference it directly. Do not rename
-fields without updating both sides and `schema.md` in the same change.
+CORS is preconfigured for `localhost:3456` and any `*.vercel.app`
+origin. For a custom domain, extend `allow_origins` in
+`backend/main.py`.
 
 ---
 
-## Project structure
+## Project layout
 
 ```
 faraday/
-├── frontend/         Next.js 14 (App Router, TS, Tailwind, shadcn)
-├── backend/          FastAPI (Python 3.11+, Pydantic v2)
-├── schema.md         Locked JSON contract
+├── frontend/                  Next.js 14 · TS · Tailwind · shadcn/ui
+├── backend/
+│   ├── main.py                FastAPI app (POST /api/qc, /api/plan, GET /health)
+│   ├── adapter.py             Pipeline output → schema.md shape
+│   ├── cache.py               In-process per-hypothesis cache
+│   ├── schemas.py             Pydantic v2 models (mirrors schema.md)
+│   └── agent/litsearch/       Query → arXiv → rank → summarize → plan
+├── schema.md                  Locked JSON contract
 └── README.md
 ```
 
-Both apps ship with mock data wired into the endpoints. The agent seam
-lives in `backend/agent/__init__.py` — a `generate_plan(hypothesis)`
-stub that gets replaced with real Anthropic agent logic without
-touching the schema or endpoint signatures.
+---
+
+## Schema contract
+
+The full JSON contract lives in [`schema.md`](./schema.md). Both
+`frontend/lib/types.ts` (TypeScript) and `backend/schemas.py`
+(Pydantic v2) mirror it field-for-field. **Do not rename fields
+without updating both sides and `schema.md` in the same change.**
 
 ---
 
-## Team
+## API
 
-_Faraday team — Hack-Nation 2026 Zurich Hub._
+| Method | Path        | Body                       | Response       |
+| ------ | ----------- | -------------------------- | -------------- |
+| POST   | `/api/qc`   | `{ "hypothesis": string }` | `LiteratureQC` |
+| POST   | `/api/plan` | `{ "hypothesis": string }` | `Plan`         |
+| GET    | `/health`   | —                          | `{ status }`   |
+
+Both POST endpoints share a per-hypothesis pipeline cache, so a `/qc`
+call followed by `/plan` for the same hypothesis reuses one pipeline
+run. See `/docs` for the live OpenAPI spec.
+
+---
+
+## Origin
+
+Built at Hack-Nation 2026, Zurich Hub.
