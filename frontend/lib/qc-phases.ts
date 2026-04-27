@@ -4,7 +4,7 @@ export const QC_PHASES = [
   { id: "parse", label: "Parsing hypothesis" },
   {
     id: "search",
-    label: "Searching arXiv · PubMed · bioRxiv · medRxiv (38M+ papers)",
+    label: "Searching arXiv",
   },
   { id: "rank", label: "Ranking candidates by relevance" },
   { id: "verify", label: "Verifying citations" },
