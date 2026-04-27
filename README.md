@@ -54,4 +54,4 @@ If the backend is ever down or rate-limited, the frontend falls back to mock dat
 
 ## Origin
 
-Built at Hack-Nation 2026, Zurich Hub.
+Built at Hack-Nation 5th Global Hackathon 2026, Zurich Hub.
